@@ -1,4 +1,5 @@
 require 'rexml/io_source'
+require 'jabber/muc/mucclient'
 
 module HipchatIrcGateway
   autoload :IrcServer,     'hipchat_irc_gateway/irc_server'

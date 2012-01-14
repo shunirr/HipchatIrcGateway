@@ -8,37 +8,34 @@ Bundler.require
 
 require 'pit'
 require 'net/irc'
-require "optparse"
 
 require 'hipchat_irc_gateway'
 
-config = Pit.get('hipchat_client', :require => {
+pit = Pit.get('hipchat_irc_gateway', :require => {
   'username' => 'YOUR USERNAME',
   'password' => 'YOUR PASSWORD',
-  'room'     => 'ROOM NAME',
-  'nickname' => 'YOUR NICKNAME',
+  'nick'     => 'YOUR NICK',
+  'rooms_prefix' => 'ROOMS PREFIX',
+  'rooms'    => ['ROOM NAME (EXCLUDE PREFIX)'],
 })
 
-# Using resource "/bot" on the user JID prevents HipChat from sending the
-# history upon channel join.
-$settings = {
-  :server   => 'chat.hipchat.com',
-  :jid      => "#{config['username']}@chat.hipchat.com/bot",
-  :nick     => config['nickname'],
-  :room     => "#{config['room']}@conf.hipchat.com",
-  :password => config['password'],
-  :debug    => Logger.new(STDOUT),
-}
+logger = Logger.new(STDOUT)
+logger.level = Logger::DEBUG
 
 opts = {
   :port   => 16800,
-  :host   => "localhost",
-  :debug  => true,
-  :log    => STDOUT,
+  :host   => 'localhost',
+  :logger => logger,
+  :hipchat => {
+    :server   => 'chat.hipchat.com',
+    :jid      => "#{pit['username']}@chat.hipchat.com/bot",
+    :rooms_prefix => pit['rooms_prefix'],
+    :rooms    => pit['rooms'].map {|r| "#{r}@conf.hipchat.com"},
+    :nick     => pit['nick'],
+    :password => pit['password'],
+    :debug    => logger,
+  }
 }
-
-opts[:logger] = Logger.new(opts[:log], "daily")
-opts[:logger].level = Logger::DEBUG
 
 Net::IRC::Server.new(opts[:host], opts[:port], HipchatIrcGateway::IrcServer, opts).start
 

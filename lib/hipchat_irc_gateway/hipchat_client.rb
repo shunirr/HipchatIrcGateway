@@ -10,12 +10,16 @@ require 'facets/random'
 
 module HipchatIrcGateway
   class HipchatClient
-    attr_accessor :config, :client, :muc, :irc
     def initialize(config, irc)
-      self.config = config
-      self.client = Jabber::Client.new(config[:jid])
-      self.muc    = Jabber::MUC::SimpleMUCClient.new(client)
-      self.irc    = irc
+      @config = config
+      @client = Jabber::Client.new(@config[:jid])
+      @irc = irc
+      @mucs = {}
+      @config[:rooms].each do |room|
+        room = "#{@config[:rooms_prefix]}_#{room}"
+        @mucs[room] = Jabber::MUC::SimpleMUCClient.new(@client)
+        @irc.send_join room2channel(room)
+      end
 
       if Jabber.logger = config[:debug]
         Jabber.debug = true
@@ -25,24 +29,39 @@ module HipchatIrcGateway
     end
 
     def connect
-      client.connect
-      client.auth(config[:password])
-      client.send(Jabber::Presence.new.set_type(:available))
+      @client.connect
+      @client.auth(@config[:password])
+      @client.send(Jabber::Presence.new.set_type(:available))
 
-      salutation = config[:nick].split(/\s+/).first
-
-      muc.on_message do |time, nick, text|
-        warn "#{nick}: #{text}"
-        irc.send_privmsg nick, text
+      @mucs.each do |room, muc|
+        muc.on_message do |time, nick, text|
+          #next if nick == @config[:nick]
+          warn "#{room}: #{nick}: #{text}"
+          @irc.send_privmsg room2channel(room), nick, text
+        end
+        muc.join(room + '/' + @config[:nick])
       end
-
-      muc.join(config[:room] + '/' + config[:nick])
 
       self
     end
+    
+    def send_message(room, msg)
+      msg  = msg.force_encoding('utf-8')
+      room = channel2room(room).force_encoding('utf-8')
 
-    def send(msg)
-      muc.send Jabber::Message.new(muc.room, msg.force_encoding('utf-8'))
+      muc = @mucs[room]
+      muc.send Jabber::Message.new(room, msg)
+    end
+
+    private
+    def room2channel(room)
+      "##{room.match(/^[^_]+_([^@]+)/)[1]}"
+    end
+
+    def channel2room(channel)
+      "#{@config[:rooms_prefix]}_#{channel.sub('#', '')}@conf.hipchat.com"
     end
   end
+
 end
+
