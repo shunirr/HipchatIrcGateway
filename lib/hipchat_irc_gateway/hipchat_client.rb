@@ -5,8 +5,6 @@ require 'xmpp4r/muc/helper/simplemucclient'
 require 'open-uri'
 require 'cgi'
 require 'json'
-require 'facets'
-require 'facets/random'
 
 module HipchatIrcGateway
   class HipchatClient
